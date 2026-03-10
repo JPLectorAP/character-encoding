@@ -9,5 +9,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        const p = window.location.search.match(/[?&]p=([^&]*)/);
+        if (p && p[1]) {
+          const decoded = '/' + decodeURIComponent(p[1]);
+          window.history.replaceState(null, null, decoded);
+        }
+      })();
+    </script>
   </body>
 </html>

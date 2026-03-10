@@ -7,7 +7,7 @@ import QuizPage from './pages/QuizPage'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/character-encoding">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/encode" replace />} />
