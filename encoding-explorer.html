@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Encoding Explorer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&family=Share+Tech&display=swap');
+
+  :root {
+    --green: #00ff88;
+    --green-dim: #00aa55;
+    --green-glow: rgba(0,255,136,0.15);
+    --amber: #ffaa00;
+    --red: #ff4444;
+    --bg: #0a0f0a;
+    --panel: #0d150d;
+    --border: #1a3a1a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .scanline {
+    position: fixed;
+    top: -100%;
+    left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, rgba(0,255,136,0.04), transparent);
+    animation: scan 8s linear infinite;
+    pointer-events: none;
+    z-index: 998;
+  }
+
+  @keyframes scan { to { top: 110%; } }
+
+  header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  header h1 {
+    font-family: 'VT323', monospace;
+    font-size: 3.5rem;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green), 0 0 40px rgba(0,255,136,0.3);
+    letter-spacing: 4px;
+    line-height: 1;
+  }
+
+  header p {
+    color: var(--green-dim);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    letter-spacing: 2px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 8px 20px;
+    background: none;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    position: relative;
+    top: 1px;
+  }
+
+  .tab:hover { color: var(--green); border-color: var(--green-dim); }
+
+  .tab.active {
+    color: var(--green);
+    border-color: var(--green);
+    background: var(--panel);
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-family: 'VT323', monospace;
+    font-size: 1.5rem;
+    color: var(--amber);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-shadow: 0 0 10px rgba(255,170,0,0.4);
+  }
+
+  label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--green-dim);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: #050a05;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 10px var(--green-glow);
+  }
+
+  select option { background: #0a0f0a; }
+
+  textarea { resize: vertical; min-height: 80px; }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    padding: 9px 22px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.15s;
+    margin-top: 12px;
+  }
+
+  .btn:hover {
+    background: var(--green-glow);
+    box-shadow: 0 0 16px var(--green-glow);
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  .btn.amber {
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  .btn.amber:hover { background: rgba(255,170,0,0.1); box-shadow: 0 0 16px rgba(255,170,0,0.2); }
+
+  .output-block {
+    background: #050a05;
+    border: 1px solid var(--border);
+    padding: 14px;
+    margin-top: 14px;
+    font-size: 0.88rem;
+    line-height: 1.8;
+    min-height: 50px;
+    word-break: break-all;
+  }
+
+  .byte-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .byte-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 6px;
+    background: #0a150a;
+    border: 1px solid var(--border);
+    min-width: 52px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+
+  .byte-cell:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 10px var(--green-glow);
+    transform: translateY(-2px);
+  }
+
+  .byte-cell .char-label {
+    font-family: 'VT323', monospace;
+    font-size: 1.5rem;
+    color: var(--amber);
+    line-height: 1;
+    text-shadow: 0 0 8px rgba(255,170,0,0.4);
+  }
+
+  .byte-cell .hex-val { font-size: 0.78rem; color: var(--green); }
+  .byte-cell .dec-val { font-size: 0.7rem; color: var(--green-dim); }
+  .byte-cell .bin-val { font-size: 0.62rem; color: #005522; letter-spacing: -0.5px; }
+
+  .multi-byte .byte-cell { border-color: rgba(0,255,136,0.4); }
+
+  .tag-label {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    border: 1px solid;
+    letter-spacing: 1px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag-utf8 { color: var(--green); border-color: var(--green); }
+  .tag-unicode { color: var(--amber); border-color: var(--amber); }
+  .tag-error { color: var(--red); border-color: var(--red); }
+
+  .row-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  @media (max-width: 600px) { .row-pair { grid-template-columns: 1fr; } }
+
+  .ascii-table-wrap { overflow-x: auto; }
+
+  .ascii-table {
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    width: 100%;
+  }
+
+  .ascii-table th {
+    color: var(--amber);
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    letter-spacing: 1px;
+  }
+
+  .ascii-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid #111;
+    color: var(--green-dim);
+    transition: all 0.1s;
+  }
+
+  .ascii-table tr:hover td {
+    background: var(--green-glow);
+    color: var(--green);
+  }
+
+  .ascii-table .char-col {
+    font-family: 'VT323', monospace;
+    font-size: 1.3rem;
+    color: var(--amber);
+  }
+
+  .highlight-row td { background: rgba(0,255,136,0.08) !important; color: var(--green) !important; }
+
+  /* Mojibake panel */
+  .broken-text {
+    font-size: 1.1rem;
+    color: var(--red);
+    text-shadow: 0 0 8px rgba(255,68,68,0.3);
+    word-break: break-all;
+    line-height: 1.6;
+  }
+
+  .fixed-text {
+    font-size: 1.1rem;
+    color: var(--green);
+    text-shadow: 0 0 8px var(--green-glow);
+    line-height: 1.6;
+  }
+
+  .explain-block {
+    border-left: 2px solid var(--green-dim);
+    padding-left: 14px;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    color: var(--green-dim);
+    line-height: 1.7;
+  }
+
+  .explain-block span { color: var(--green); }
+
+  /* Quiz */
+  .quiz-q {
+    font-size: 1rem;
+    margin-bottom: 16px;
+    line-height: 1.6;
+    color: var(--green);
+  }
+
+  .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+
+  .quiz-opt {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+
+  .quiz-opt:hover { border-color: var(--green-dim); color: var(--green); background: var(--green-glow); }
+  .quiz-opt.correct { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.1); text-shadow: 0 0 6px var(--green); }
+  .quiz-opt.wrong { border-color: var(--red); color: var(--red); background: rgba(255,68,68,0.08); }
+
+  .quiz-feedback {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    display: none;
+  }
+  .quiz-feedback.show { display: block; }
+  .quiz-feedback.ok { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.06); }
+  .quiz-feedback.err { border-color: var(--red); color: var(--red); background: rgba(255,68,68,0.06); }
+
+  .progress-bar-wrap {
+    background: #050a05;
+    border: 1px solid var(--border);
+    height: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    transition: width 0.4s ease;
+  }
+
+  .score-display {
+    font-family: 'VT323', monospace;
+    font-size: 1.6rem;
+    color: var(--amber);
+    letter-spacing: 2px;
+    text-align: right;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(255,170,0,0.3);
+  }
+
+  .cursor-blink::after {
+    content: '_';
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .info-pill {
+    display: inline-block;
+    border: 1px solid var(--border);
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    color: var(--green-dim);
+    letter-spacing: 1px;
+    margin: 4px 4px 4px 0;
+  }
+
+  .separator { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .unicode-point {
+    font-family: 'VT323', monospace;
+    font-size: 1.2rem;
+    color: var(--amber);
+  }
+
+  .status-ok::before { content: '✓ '; color: var(--green); }
+  .status-err::before { content: '✗ '; color: var(--red); }
+
+  /* ===== VISUAL EXAMPLES ===== */
+  .ex-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:16px; }
+  .ex-tab {
+    padding: 6px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  .ex-tab:hover { color: var(--green); border-color: var(--green-dim); }
+  .ex-tab.active { color: var(--green); border-color: var(--green); background: var(--green-glow); text-shadow: 0 0 6px var(--green); }
+
+  .ex-scene { display:none; }
+  .ex-scene.active { display:block; }
+
+  /* Flip card */
+  .flip-wrap { perspective: 1200px; margin-top: 4px; }
+  .flip-card {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s ease;
+    cursor: pointer;
+  }
+  .flip-card.flipped { transform: rotateY(180deg); }
+  .flip-front, .flip-back {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .flip-back { position:absolute; top:0; left:0; width:100%; transform: rotateY(180deg); }
+  .flip-hint {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--green-dim);
+    letter-spacing: 2px;
+    margin-top: 10px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+
+  /* Browser mockup */
+  .browser-chrome {
+    background: #1a2a1a;
+    border: 1px solid #2a4a2a;
+    border-radius: 6px 6px 0 0;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .browser-dots { display:flex; gap:5px; }
+  .browser-dot { width:10px; height:10px; border-radius:50%; }
+  .browser-url {
+    flex: 1;
+    background: #0a150a;
+    border: 1px solid var(--border);
+    color: var(--green-dim);
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .browser-body {
+    background: #f5f5f0;
+    border: 1px solid #2a4a2a;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 20px 24px;
+    color: #222;
+    font-family: Georgia, serif;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    min-height: 120px;
+  }
+  .browser-body.broken { color: #c00; }
+  .browser-body h3 { font-size: 1.2rem; margin-bottom: 8px; color: #111; }
+  .browser-body.broken h3 { color: #900; }
+  .browser-body p { margin-bottom: 6px; }
+  .page-title-bar {
+    font-size: 0.72rem;
+    color: var(--green-dim);
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* HTML source mockup */
+  .code-block {
+    background: #050a05;
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    border-radius: 2px;
+  }
+  .code-block .kw { color: #569cd6; }
+  .code-block .attr { color: #9cdcfe; }
+  .code-block .val { color: #ce9178; }
+  .code-block .tag { color: #4ec9b0; }
+  .code-block .hl { background: rgba(255,68,68,0.15); border-left: 2px solid var(--red); padding-left: 6px; display:block; }
+  .code-block .hl-ok { background: rgba(0,255,136,0.08); border-left: 2px solid var(--green); padding-left: 6px; display:block; }
+
+  /* Excel mockup */
+  .excel-chrome {
+    background: #1d4a1d;
+    border-radius: 4px 4px 0 0;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: #aaffaa;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #2a6a2a;
+  }
+  .excel-tab {
+    background: #0d2a0d;
+    border: 1px solid #2a4a2a;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    color: var(--green-dim);
+    border-radius: 3px 3px 0 0;
+  }
+  .excel-grid {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.82rem;
+    border: 1px solid #2a4a2a;
+    border-top: none;
+  }
+  .excel-grid th {
+    background: #0d1f0d;
+    color: var(--green-dim);
+    padding: 4px 14px;
+    border: 1px solid #1a3a1a;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    text-align: center;
+    font-weight: normal;
+  }
+  .excel-grid td {
+    padding: 5px 14px;
+    border: 1px solid #1a3a1a;
+    background: #080f08;
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .excel-grid td.broken { color: var(--red); }
+  .excel-grid td.row-header { color: var(--green-dim); background: #0d1f0d; text-align:center; }
+  .excel-grid td.ok { color: var(--green); }
+
+  /* Email mockup */
+  .email-chrome {
+    background: #1a2a2a;
+    border: 1px solid #2a4a4a;
+    border-radius: 4px 4px 0 0;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: #aaffee;
+  }
+  .email-header-row { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px solid #1a3a3a; }
+  .email-header-row span:first-child { color: var(--green-dim); width: 50px; flex-shrink: 0; }
+  .email-body-wrap {
+    background: #080f0f;
+    border: 1px solid #2a4a4a;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 16px;
+    font-size: 0.88rem;
+    line-height: 1.8;
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .email-body-wrap.broken { color: var(--red); }
+  .email-raw {
+    background: #050a08;
+    border: 1px solid #1a3a1a;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    color: var(--green-dim);
+    line-height: 1.7;
+    margin-top: 10px;
+    border-radius: 2px;
+  }
+
+  /* Terminal mockup */
+  .terminal-chrome {
+    background: #1a1a2a;
+    border: 1px solid #2a2a4a;
+    border-radius: 4px 4px 0 0;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    color: #aaaaff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .terminal-body {
+    background: #05050f;
+    border: 1px solid #2a2a4a;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 14px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    min-height: 130px;
+  }
+  .t-prompt { color: #7777ff; }
+  .t-cmd { color: #ffffff; }
+  .t-ok { color: #00ff88; }
+  .t-err { color: #ff4444; }
+  .t-comment { color: #555588; }
+  .t-warn { color: #ffaa00; }
+
+  .scene-label {
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    color: var(--green-dim);
+    margin-bottom: 6px;
+  }
+  .scene-arrow {
+    text-align: center;
+    font-size: 1.4rem;
+    color: var(--green-dim);
+    margin: 12px 0;
+    letter-spacing: 4px;
+  }
+  .fix-badge {
+    display: inline-block;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .break-badge {
+    display: inline-block;
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<header>
+  <h1>ENCODING EXPLORER</h1>
+  <p>// CHARACTER ENCODING INTERACTIVE LAB — APWT IT ESSENTIALS //</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('encode')">1. TEKST → BYTES</button>
+  <button class="tab" onclick="switchTab('ascii')">2. ASCII TABEL</button>
+  <button class="tab" onclick="switchTab('mojibake')">3. MOJIBAKE</button>
+  <button class="tab" onclick="switchTab('quiz')">4. QUIZ</button>
+</div>
+
+<!-- TAB 1: ENCODE -->
+<div id="tab-encode" class="panel active">
+  <div class="card">
+    <h2>&#9658; TEKST NAAR BYTES</h2>
+    <label>VOER TEKST IN (probeer accenten, emoji's, andere talen)</label>
+    <input type="text" id="inputText" value="Héllo 🌍" oninput="analyzeText()" placeholder="Type hier...">
+    <div class="byte-grid" id="byteGrid"></div>
+  </div>
+
+  <div class="row-pair">
+    <div class="card">
+      <h2>&#9658; UTF-8 BYTES</h2>
+      <div class="output-block" id="utf8Output">...</div>
+      <div style="margin-top:10px; font-size:0.78rem; color:var(--green-dim)">
+        <span class="info-pill">1 byte = ASCII</span>
+        <span class="info-pill">2-4 bytes = Unicode</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>&#9658; UNICODE CODEPOINTS</h2>
+      <div class="output-block" id="unicodeOutput">...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>&#9658; ENCODING VERGELIJKING</h2>
+    <div class="output-block" id="compareOutput">...</div>
+    <p style="font-size:0.75rem; color:var(--green-dim); margin-top:10px">
+      ⚠ Latin-1 ondersteunt geen emoji's of karakters buiten het Latijns alfabet
+    </p>
+  </div>
+</div>
+
+<!-- TAB 2: ASCII -->
+<div id="tab-ascii" class="panel">
+  <div class="card">
+    <h2>&#9658; ASCII TABEL VERKENNER</h2>
+    <label>ZOEK EEN KARAKTER OF WAARDE</label>
+    <input type="text" id="asciiSearch" oninput="filterAscii()" placeholder="Typ een letter, getal of ASCII-waarde...">
+    <div style="margin-top: 16px;" class="ascii-table-wrap">
+      <table class="ascii-table" id="asciiTable">
+        <thead>
+          <tr>
+            <th>CHAR</th>
+            <th>DEC</th>
+            <th>HEX</th>
+            <th>BIN</th>
+            <th>NAAM</th>
+          </tr>
+        </thead>
+        <tbody id="asciiBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: MOJIBAKE -->
+<div id="tab-mojibake" class="panel">
+  <div class="card">
+    <h2>&#9658; MOJIBAKE SIMULATOR</h2>
+    <p style="font-size:0.82rem; color:var(--green-dim); margin-bottom:14px; line-height:1.7">
+      Mojibake ontstaat wanneer tekst geëncodeerd is in één encoding maar gelezen wordt met een andere.
+      Bekijk wat er misgaat en waarom.
+    </p>
+
+    <label>ORIGINELE TEKST (UTF-8)</label>
+    <input type="text" id="mojiInput" value="Ça va très bien!" oninput="simulateMoji()">
+
+    <label style="margin-top:14px">VERKEERD GELEZEN ALS</label>
+    <select id="mojiEncoding" onchange="simulateMoji()">
+      <option value="latin1">Windows-1252 / Latin-1</option>
+      <option value="utf16">UTF-16 LE (zonder BOM)</option>
+      <option value="ascii">ASCII (7-bit)</option>
+    </select>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px">
+      <div>
+        <label>✓ CORRECT (UTF-8)</label>
+        <div class="output-block fixed-text" id="mojiCorrect"></div>
+      </div>
+      <div>
+        <label>✗ KAPOT GELEZEN</label>
+        <div class="output-block broken-text" id="mojiBroken"></div>
+      </div>
+    </div>
+
+    <div class="explain-block" id="mojiExplain"></div>
+  </div>
+
+  <div class="card">
+    <h2>&#9658; ECHTE VOORBEELDEN</h2>
+    <div class="ex-tabs">
+      <button class="ex-tab active" onclick="switchEx('html', this)">🌐 HTML / Browser</button>
+      <button class="ex-tab" onclick="switchEx('csv', this)">📊 CSV in Excel</button>
+      <button class="ex-tab" onclick="switchEx('email', this)">✉ Oude e-mail</button>
+      <button class="ex-tab" onclick="switchEx('db', this)">🗄 MySQL / DB</button>
+    </div>
+
+    <!-- HTML VOORBEELD -->
+    <div class="ex-scene active" id="ex-html">
+      <div class="row-pair">
+        <div>
+          <div class="scene-label">✗ ZONDER &lt;meta charset&gt;</div>
+          <div class="page-title-bar">📄 cafe.html — tab titel: "Caf? Website"</div>
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <div class="browser-url">http://www.café-brussel.be/menu</div>
+          </div>
+          <div class="browser-body broken">
+            <h3>Welkom bij CafÃ© De Gouden Leeuw</h3>
+            <p>Onze specialiteitÃ©n van het seizoen:</p>
+            <p>â€¢ HuisgemÃ¤kte soep â€" â‚¬6,50</p>
+            <p>â€¢ GegrillÃ© zalm â€" â‚¬18,00</p>
+          </div>
+          <div style="margin-top:10px">
+            <div class="code-block">
+<span class="tag">&lt;head&gt;</span>
+<span class="hl">  <span style="color:#555">// geen charset tag!</span></span>
+  <span class="tag">&lt;title&gt;</span>Café<span class="tag">&lt;/title&gt;</span>
+<span class="tag">&lt;/head&gt;</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="scene-label">✓ MET &lt;meta charset="UTF-8"&gt;</div>
+          <div class="page-title-bar">📄 cafe.html — tab titel: "Café Website"</div>
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <div class="browser-url">http://www.café-brussel.be/menu</div>
+          </div>
+          <div class="browser-body">
+            <h3>Welkom bij Café De Gouden Leeuw</h3>
+            <p>Onze specialités van het seizoen:</p>
+            <p>• Huisgemaakte soep — €6,50</p>
+            <p>• Gegrillé zalm — €18,00</p>
+          </div>
+          <div style="margin-top:10px">
+            <div class="code-block">
+<span class="tag">&lt;head&gt;</span>
+<span class="hl-ok">  <span class="tag">&lt;meta</span> <span class="attr">charset</span>=<span class="val">"UTF-8"</span><span class="tag">&gt;</span></span>
+  <span class="tag">&lt;title&gt;</span>Café<span class="tag">&lt;/title&gt;</span>
+<span class="tag">&lt;/head&gt;</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="explain-block" style="margin-top:14px">
+        Zonder <span>&lt;meta charset&gt;</span> raadt de browser de encoding. Een UTF-8 bestand dat als <span>Windows-1252</span> wordt gelezen, splitst multi-byte tekens op: <span>'é' (0xC3 0xA9)</span> wordt twee losse tekens: <span>'Ã' en '©'</span>.
+      </div>
+    </div>
+
+    <!-- CSV VOORBEELD -->
+    <div class="ex-scene" id="ex-csv">
+      <div class="row-pair">
+        <div>
+          <div class="scene-label">✗ UTF-8 CSV GEOPEND IN EXCEL (Windows)</div>
+          <div class="excel-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <span>📊 studenten.csv — Microsoft Excel</span>
+            <div class="excel-tab">studenten</div>
+          </div>
+          <table class="excel-grid">
+            <thead><tr><th></th><th>A</th><th>B</th><th>C</th></tr></thead>
+            <tbody>
+              <tr><td class="row-header">1</td><td>Naam</td><td>Stad</td><td>Score</td></tr>
+              <tr><td class="row-header">2</td><td class="broken">RÃ©mi</td><td class="broken">LiÃ¨ge</td><td>87</td></tr>
+              <tr><td class="row-header">3</td><td class="broken">FranÃ§ois</td><td class="broken">BrÃ¼gge</td><td>92</td></tr>
+              <tr><td class="row-header">4</td><td class="broken">ÃstlÃ¦n</td><td>Gent</td><td>78</td></tr>
+            </tbody>
+          </table>
+          <div class="code-block" style="margin-top:10px; font-size:0.75rem">
+<span style="color:var(--green-dim)"># Python script dat dit CSV aanmaakt:</span>
+df.to_csv(<span class="val">'studenten.csv'</span>)
+<span style="color:var(--green-dim)"># Standaard: UTF-8 zonder BOM → kapot in Excel</span></div>
+        </div>
+        <div>
+          <div class="scene-label">✓ MET UTF-8 BOM (utf-8-sig)</div>
+          <div class="excel-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <span>📊 studenten.csv — Microsoft Excel</span>
+            <div class="excel-tab">studenten</div>
+          </div>
+          <table class="excel-grid">
+            <thead><tr><th></th><th>A</th><th>B</th><th>C</th></tr></thead>
+            <tbody>
+              <tr><td class="row-header">1</td><td>Naam</td><td>Stad</td><td>Score</td></tr>
+              <tr><td class="row-header">2</td><td class="ok">Rémi</td><td class="ok">Liège</td><td>87</td></tr>
+              <tr><td class="row-header">3</td><td class="ok">François</td><td class="ok">Brügge</td><td>92</td></tr>
+              <tr><td class="row-header">4</td><td class="ok">Østlæn</td><td>Gent</td><td>78</td></tr>
+            </tbody>
+          </table>
+          <div class="code-block" style="margin-top:10px; font-size:0.75rem">
+<span style="color:var(--green-dim)"># Oplossing: BOM toevoegen</span>
+df.to_csv(<span class="val">'studenten.csv'</span>, encoding=<span class="val">'utf-8-sig'</span>)
+<span style="color:var(--green-dim)"># BOM = 0xEF 0xBB 0xBF → Excel herkent UTF-8</span></div>
+        </div>
+      </div>
+      <div class="explain-block" style="margin-top:14px">
+        Excel (Windows) opent CSV-bestanden standaard als <span>Windows-1252</span>. Een <span>BOM (Byte Order Mark, 0xEF BB BF)</span> aan het begin van het bestand signaleert dat het UTF-8 is. Python's <span>encoding='utf-8-sig'</span> voegt dit automatisch toe.
+      </div>
+    </div>
+
+    <!-- EMAIL VOORBEELD -->
+    <div class="ex-scene" id="ex-email">
+      <div class="row-pair">
+        <div>
+          <div class="scene-label">✗ E-MAIL MET VERKEERDE ENCODING</div>
+          <div class="email-chrome">
+            <div class="email-header-row"><span>Van:</span><span>info@museum-brugge.be</span></div>
+            <div class="email-header-row"><span>Aan:</span><span>klant@example.com</span></div>
+            <div class="email-header-row"><span>Onderwerp:</span><span>Bevestiging uw bezoek aan het Gr=C3=B6ningemuseum</span></div>
+          </div>
+          <div class="email-body-wrap broken">
+Geachte mevrouw M=C3=BCller,
+
+Bedankt voor uw reservering voor het
+Gr=C3=B6ningemuseum op vrijdag 13 juni.
+
+Uw ticket(s): 2 x â‚¬14,00 = â‚¬28,00
+
+Wij kijken ernaar uit u te verwelkomen!
+
+Met vriendelijke groeten,
+H=C3=A9l=C3=A8ne Vandenh=C3=A2ve
+          </div>
+          <div class="email-raw">
+Content-Type: text/plain<span style="color:var(--red)"> <span style="background:rgba(255,68,68,0.1)">↑ geen charset!</span></span>
+Content-Transfer-Encoding: quoted-printable</div>
+        </div>
+        <div>
+          <div class="scene-label">✓ MET CORRECTE CHARSET HEADER</div>
+          <div class="email-chrome">
+            <div class="email-header-row"><span>Van:</span><span>info@museum-brugge.be</span></div>
+            <div class="email-header-row"><span>Aan:</span><span>klant@example.com</span></div>
+            <div class="email-header-row"><span>Onderwerp:</span><span>Bevestiging uw bezoek aan het Grüningemuseum</span></div>
+          </div>
+          <div class="email-body-wrap">
+Geachte mevrouw Müller,
+
+Bedankt voor uw reservering voor het
+Grüningemuseum op vrijdag 13 juni.
+
+Uw ticket(s): 2 x €14,00 = €28,00
+
+Wij kijken ernaar uit u te verwelkomen!
+
+Met vriendelijke groeten,
+Hélène Vandenhâve
+          </div>
+          <div class="email-raw">
+Content-Type: text/plain<span style="color:var(--green)">; charset=UTF-8</span>
+Content-Transfer-Encoding: quoted-printable</div>
+        </div>
+      </div>
+      <div class="explain-block" style="margin-top:14px">
+        E-mailprotocollen zijn oud en gebruikten vroeger <span>US-ASCII of ISO-8859-1</span>. Zonder <span>charset=UTF-8</span> in de Content-Type header interpreteert de ontvanger de bytes in zijn eigen standaardencoding, wat resulteert in <span>Quoted-Printable artefacten</span> zoals <span>=C3=B6</span> in plaats van <span>ö</span>.
+      </div>
+    </div>
+
+    <!-- DB VOORBEELD -->
+    <div class="ex-scene" id="ex-db">
+      <div class="row-pair">
+        <div>
+          <div class="scene-label">✗ MySQL MET utf8 (BEPERKT)</div>
+          <div class="terminal-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <span style="color:#aaaaff">mysql — gebruiker@localhost</span>
+          </div>
+          <div class="terminal-body">
+<span class="t-comment">-- Tabel aangemaakt met 'utf8' charset</span>
+<span class="t-prompt">mysql&gt; </span><span class="t-cmd">CREATE TABLE posts (</span>
+<span class="t-cmd">  inhoud VARCHAR(255)</span>
+<span class="t-cmd">) CHARSET=<span style="color:#ff8888">utf8</span>;</span>
+
+<span class="t-prompt">mysql&gt; </span><span class="t-cmd">INSERT INTO posts VALUES</span>
+<span class="t-cmd">  ('Top resultaat! 🚀');</span>
+
+<span class="t-err">ERROR 1366 (HY000): Incorrect string</span>
+<span class="t-err">value: '\xF0\x9F\x9A\x80' for column</span>
+<span class="t-err">'inhoud' at row 1</span>
+
+<span class="t-comment">-- utf8 in MySQL = max 3 bytes (U+0000–U+FFFF)</span>
+<span class="t-comment">-- Emoji 🚀 = U+1F680 = 4 bytes → GEBLOKKEERD</span>
+          </div>
+        </div>
+        <div>
+          <div class="scene-label">✓ MySQL MET utf8mb4 (VOLLEDIG UNICODE)</div>
+          <div class="terminal-chrome">
+            <div class="browser-dots">
+              <div class="browser-dot" style="background:#ff5f56"></div>
+              <div class="browser-dot" style="background:#ffbd2e"></div>
+              <div class="browser-dot" style="background:#27c93f"></div>
+            </div>
+            <span style="color:#aaaaff">mysql — gebruiker@localhost</span>
+          </div>
+          <div class="terminal-body">
+<span class="t-comment">-- utf8mb4 = echte UTF-8 (max 4 bytes)</span>
+<span class="t-prompt">mysql&gt; </span><span class="t-cmd">ALTER TABLE posts</span>
+<span class="t-cmd">  CONVERT TO CHARACTER SET <span style="color:var(--green)">utf8mb4</span></span>
+<span class="t-cmd">  COLLATE <span style="color:var(--green)">utf8mb4_unicode_ci</span>;</span>
+
+<span class="t-ok">Query OK, 0 rows affected</span>
+
+<span class="t-prompt">mysql&gt; </span><span class="t-cmd">INSERT INTO posts VALUES</span>
+<span class="t-cmd">  ('Top resultaat! 🚀');</span>
+
+<span class="t-ok">Query OK, 1 row affected</span>
+
+<span class="t-prompt">mysql&gt; </span><span class="t-cmd">SELECT inhoud FROM posts;</span>
+<span class="t-ok">Top resultaat! 🚀</span>
+          </div>
+        </div>
+      </div>
+      <div class="explain-block" style="margin-top:14px">
+        MySQL's <span>utf8</span> charset is een historische fout: het ondersteunt slechts <span>3 bytes per karakter (U+0000–U+FFFF)</span>. Emoji's en zeldzame Unicode-tekens vereisen <span>4 bytes</span>. Gebruik altijd <span>utf8mb4</span> voor echte UTF-8 ondersteuning. Dit geldt ook voor MariaDB.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TAB 4: QUIZ -->
+<div id="tab-quiz" class="panel">
+  <div class="card">
+    <h2>&#9658; ENCODING QUIZ</h2>
+    <div class="score-display" id="scoreDisplay">SCORE: 0 / 0</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+    <div id="quizContainer"></div>
+    <button class="btn amber" onclick="resetQuiz()" style="margin-top:20px">↺ OPNIEUW</button>
+  </div>
+</div>
+
+<script>
+// ===== TAB SWITCHER =====
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'ascii') buildAsciiTable();
+  if (name === 'mojibake') simulateMoji();
+  if (name === 'quiz') initQuiz();
+}
+
+// ===== TAB 1: ENCODE =====
+function toUTF8Bytes(str) {
+  return Array.from(new TextEncoder().encode(str));
+}
+
+function toBinary(n, pad=8) {
+  return n.toString(2).padStart(pad, '0');
+}
+
+function analyzeText() {
+  const text = document.getElementById('inputText').value;
+  if (!text) { document.getElementById('byteGrid').innerHTML = ''; return; }
+
+  const grid = document.getElementById('byteGrid');
+  const utf8Out = document.getElementById('utf8Output');
+  const unicodeOut = document.getElementById('unicodeOutput');
+  const compareOut = document.getElementById('compareOutput');
+
+  // Byte grid per character
+  grid.innerHTML = '';
+  const chars = [...text]; // spread handles emoji (surrogate pairs)
+  let allBytes = [];
+  
+  chars.forEach(ch => {
+    const bytes = toUTF8Bytes(ch);
+    allBytes.push(...bytes);
+    const cell = document.createElement('div');
+    cell.className = 'byte-cell' + (bytes.length > 1 ? ' multi-byte' : '');
+    const cp = ch.codePointAt(0);
+    cell.innerHTML = `
+      <span class="char-label">${ch === ' ' ? '·' : ch}</span>
+      <span class="hex-val">${bytes.map(b => b.toString(16).toUpperCase().padStart(2,'0')).join(' ')}</span>
+      <span class="dec-val">U+${cp.toString(16).toUpperCase().padStart(4,'0')}</span>
+      <span class="bin-val">${bytes.length === 1 ? toBinary(bytes[0]) : bytes.length+'B'}</span>
+    `;
+    cell.title = `Karakter: ${ch}\nUnicode: U+${cp.toString(16).toUpperCase().padStart(4,'0')}\nUTF-8 bytes: ${bytes.map(b=>'0x'+b.toString(16).toUpperCase().padStart(2,'0')).join(', ')}\nAantal bytes: ${bytes.length}`;
+    grid.appendChild(cell);
+  });
+
+  // UTF-8 bytes output
+  utf8Out.innerHTML = allBytes.map(b => 
+    `<span style="color:var(--amber)">0x${b.toString(16).toUpperCase().padStart(2,'0')}</span> `
+  ).join('') + `<br><br><span style="color:var(--green-dim)">${allBytes.length} bytes totaal voor ${chars.length} karakter(s)</span>`;
+
+  // Unicode codepoints
+  unicodeOut.innerHTML = chars.map(ch => {
+    const cp = ch.codePointAt(0);
+    const bytes = toUTF8Bytes(ch);
+    const tag = bytes.length === 1 ? '<span class="tag-label tag-utf8">1B</span>' : `<span class="tag-label tag-unicode">${bytes.length}B</span>`;
+    return `${tag} <span class="unicode-point">U+${cp.toString(16).toUpperCase().padStart(4,'0')}</span> <span style="color:var(--green)">${ch}</span> <span style="color:var(--green-dim); font-size:0.75rem">(dec: ${cp})</span><br>`;
+  }).join('');
+
+  // Compare encodings
+  let compareHTML = '';
+  const encodings = ['UTF-8', 'UTF-16', 'Latin-1*'];
+  const utf8Size = allBytes.length;
+  const utf16Size = chars.reduce((s, ch) => s + (ch.codePointAt(0) > 0xFFFF ? 4 : 2), 0) + 2; // +BOM
+  let latin1Ok = true;
+  for (const ch of chars) { if (ch.codePointAt(0) > 255) { latin1Ok = false; break; } }
+
+  compareHTML += `<span style="color:var(--green-dim)">Encoding     Bytes    Status</span><br>`;
+  compareHTML += `─────────────────────────────<br>`;
+  compareHTML += `<span class="status-ok">UTF-8        ${String(utf8Size).padEnd(5)}  ${utf8Size} byte(s)</span><br>`;
+  compareHTML += `<span class="status-ok">UTF-16       ${String(utf16Size).padEnd(5)}  ${utf16Size} byte(s) incl. BOM</span><br>`;
+  if (latin1Ok) {
+    compareHTML += `<span class="status-ok">Latin-1      ${String(chars.length).padEnd(5)}  ${chars.length} byte(s)</span>`;
+  } else {
+    compareHTML += `<span style="color:var(--red)">✗ Latin-1    —      Niet mogelijk (bevat tekens > 255)</span>`;
+  }
+  compareOut.innerHTML = compareHTML;
+}
+
+// ===== TAB 2: ASCII =====
+const ASCII_NAMES = {
+  0:'NUL',1:'SOH',2:'STX',3:'ETX',4:'EOT',5:'ENQ',6:'ACK',7:'BEL',8:'BS',9:'TAB',
+  10:'LF',11:'VT',12:'FF',13:'CR',14:'SO',15:'SI',16:'DLE',17:'DC1',18:'DC2',19:'DC3',
+  20:'DC4',21:'NAK',22:'SYN',23:'ETB',24:'CAN',25:'EM',26:'SUB',27:'ESC',28:'FS',29:'GS',
+  30:'RS',31:'US',32:'SPACE',127:'DEL'
+};
+
+function buildAsciiTable(filter='') {
+  const tbody = document.getElementById('asciiBody');
+  tbody.innerHTML = '';
+  const fl = filter.toLowerCase();
+  for (let i = 32; i < 127; i++) {
+    const ch = String.fromCharCode(i);
+    const hex = i.toString(16).toUpperCase().padStart(2,'0');
+    const bin = toBinary(i);
+    const name = ASCII_NAMES[i] || ch;
+    const match = !fl || ch.toLowerCase() === fl || String(i) === fl || hex.toLowerCase() === fl || name.toLowerCase().includes(fl);
+    if (!match) continue;
+    const tr = document.createElement('tr');
+    if (fl && match) tr.classList.add('highlight-row');
+    tr.innerHTML = `<td class="char-col">${ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch}</td><td>${i}</td><td>0x${hex}</td><td><span style="font-size:0.68rem">${bin}</span></td><td>${name}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function filterAscii() {
+  buildAsciiTable(document.getElementById('asciiSearch').value);
+}
+
+// ===== TAB 3: MOJIBAKE =====
+function simulateMoji() {
+  const text = document.getElementById('mojiInput').value;
+  const enc = document.getElementById('mojiEncoding').value;
+  document.getElementById('mojiCorrect').textContent = text;
+
+  let broken = '';
+  let explain = '';
+
+  if (enc === 'latin1') {
+    // Simulate UTF-8 bytes read as Latin-1
+    const bytes = toUTF8Bytes(text);
+    broken = bytes.map(b => String.fromCodePoint(b)).join('');
+    explain = `<span>Wat er gebeurt:</span> De tekst is opgeslagen als <span>UTF-8</span>. Elke letter met een accent (bijv. 'é') wordt opgeslagen als <span>2 bytes</span> (bijv. 0xC3 0xA9). Windows-1252 leest elke byte apart als een karakter, dus <span>2 bytes = 2 verkeerde tekens</span>. Dit zie je veel bij oude websites of e-mails.`;
+  } else if (enc === 'utf16') {
+    const bytes = toUTF8Bytes(text);
+    // Read pairs as UTF-16 LE (just show pairs of hex values mashed together weirdly)
+    broken = '';
+    for (let i = 0; i < bytes.length - 1; i += 2) {
+      const cp = bytes[i] | (bytes[i+1] << 8);
+      try { broken += String.fromCodePoint(cp); } catch(e) { broken += '?'; }
+    }
+    if (!broken || broken.trim() === '') broken = '☐☐☐ (onleesbare bytes)';
+    explain = `<span>Wat er gebeurt:</span> UTF-16 gebruikt <span>2 bytes per karakter</span>. Wanneer UTF-8 bytes in paren worden gelezen als UTF-16 LE, worden de byte-waarden fout gecombineerd. Bovendien ontbreekt de <span>BOM (Byte Order Mark)</span> die normaal aangeeft hoe de bytes gelezen moeten worden.`;
+  } else {
+    // ASCII: replace non-ASCII with ?
+    broken = [...text].map(ch => ch.charCodeAt(0) > 127 ? '?' : ch).join('');
+    explain = `<span>Wat er gebeurt:</span> ASCII gebruikt slechts <span>7 bits (0–127)</span>. Alles buiten dat bereik (zoals accenten of emoji's) heeft geen ASCII-representatie en wordt vervangen door een <span>vraagteken</span> of weggelaten. Vroege internetsystemen deden dit veel.`;
+  }
+
+  document.getElementById('mojiBroken').textContent = broken;
+  document.getElementById('mojiExplain').innerHTML = explain;
+}
+
+function switchEx(key, btn) {
+  document.querySelectorAll('.ex-scene').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.ex-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('ex-' + key).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ===== TAB 4: QUIZ =====
+const QUESTIONS = [
+  {
+    q: "Een ASCII karakter 'A' heeft decimale waarde 65. Hoeveel bits zijn nodig om dit op te slaan?",
+    opts: ["4 bits", "7 bits", "8 bits", "16 bits"],
+    ans: 1,
+    exp: "ASCII gebruikt 7 bits (waarden 0–127). In de praktijk wordt een volledige byte (8 bits) gebruikt, maar de 8e bit is altijd 0 in standaard ASCII."
+  },
+  {
+    q: "Wat is de UTF-8 representatie van het karakter 'é' (U+00E9)?",
+    opts: ["1 byte: 0xE9", "2 bytes: 0xC3 0xA9", "2 bytes: 0x00 0xE9", "4 bytes: 0xF0 0x00 0xE9 0x00"],
+    ans: 1,
+    exp: "U+00E9 valt in het bereik U+0080–U+07FF en wordt in UTF-8 gecodeerd als 2 bytes: 0xC3 (11000011) en 0xA9 (10101001). De bits van E9 (1110 1001) worden verdeeld over beide bytes."
+  },
+  {
+    q: "Wat betekent 'mojibake'?",
+    opts: [
+      "Een Japanse encodingsstandaard",
+      "Kapotte tekst door een mismatch tussen schrijf- en leesencoding",
+      "Een type compressie-algoritme voor Unicode",
+      "Een foutmelding in UTF-16"
+    ],
+    ans: 1,
+    exp: "'Mojibake' (文字化け) is Japans voor 'getransformeerde letters'. Het ontstaat wanneer bytes die in encoding X zijn geschreven, worden gelezen als encoding Y, waardoor de tekens fout worden weergegeven."
+  },
+  {
+    q: "Hoeveel bytes gebruikt UTF-8 voor een emoji zoals 🚀 (U+1F680)?",
+    opts: ["1 byte", "2 bytes", "3 bytes", "4 bytes"],
+    ans: 3,
+    exp: "Codepoints U+10000 en hoger (zoals emoji's) vereisen 4 bytes in UTF-8. Dit is ook waarom MySQL's 'utf8' charset emoji's niet kan opslaan — het ondersteunt maar 3 bytes. Gebruik 'utf8mb4' voor emoji-ondersteuning."
+  },
+  {
+    q: "Wat is het voordeel van UTF-8 boven UTF-32 voor Engelstalige tekst?",
+    opts: [
+      "UTF-8 ondersteunt meer Unicode tekens",
+      "UTF-8 is sneller te verwerken",
+      "ASCII tekens nemen slechts 1 byte in beplaats van 4 bytes",
+      "UTF-8 heeft een vaste breedte per karakter"
+    ],
+    ans: 2,
+    exp: "UTF-32 gebruikt altijd 4 bytes per karakter. Voor ASCII tekens (A-Z, 0-9, ...) gebruikt UTF-8 slechts 1 byte. Een Engels woord van 5 letters is 5 bytes in UTF-8 maar 20 bytes in UTF-32. Daarom is UTF-8 de standaard op het web."
+  },
+  {
+    q: "Waarom bevat een UTF-16 bestand vaak een BOM (Byte Order Mark)?",
+    opts: [
+      "Om de bestandsgrootte bij te houden",
+      "Om aan te geven of bytes in little-endian of big-endian volgorde staan",
+      "Om het bestand te beveiligen met een handtekening",
+      "Om de taal van de tekst te markeren"
+    ],
+    ans: 1,
+    exp: "UTF-16 gebruikt 2 bytes per karakter. De BOM (U+FEFF) staat aan het begin en vertelt de lezer welke byte het hoogste is (big-endian: 0xFE 0xFF, of little-endian: 0xFF 0xFE). Zonder BOM kan de volgorde verkeerd worden geïnterpreteerd."
+  },
+  {
+    q: "Welke HTML-tag is essentieel om encoding-problemen in browsers te voorkomen?",
+    opts: [
+      "<encoding type=\"utf-8\">",
+      "<meta charset=\"UTF-8\">",
+      "<html lang=\"utf-8\">",
+      "<header encoding=\"utf8\">"
+    ],
+    ans: 1,
+    exp: "De tag <meta charset=\"UTF-8\"> in de <head> vertelt de browser welke encoding te gebruiken bij het lezen van de pagina. Zonder deze tag kan de browser de verkeerde encoding raden, wat resulteert in kapotte tekst."
+  },
+  {
+    q: "Welk bereik dekt de originele ASCII standaard?",
+    opts: ["0–255 (8 bits)", "0–127 (7 bits)", "0–65535 (16 bits)", "0–1114111 (21 bits)"],
+    ans: 1,
+    exp: "De originele ASCII standaard (1963) gebruikt 7 bits en dekt de waarden 0–127. Dit omvat Engelse letters, cijfers, leestekens en besturingstekens. Extended ASCII (IBM/Windows) breidde dit uit naar 8 bits (0–255) maar die extensies zijn niet gestandaardiseerd."
+  }
+];
+
+let quizState = { current: 0, score: 0, answered: false };
+
+function initQuiz() {
+  quizState = { current: 0, score: 0, answered: false };
+  renderQuestion();
+  updateScore();
+}
+
+function renderQuestion() {
+  const q = QUESTIONS[quizState.current];
+  const container = document.getElementById('quizContainer');
+  container.innerHTML = `
+    <div class="quiz-q">
+      <span style="color:var(--green-dim); font-size:0.78rem">VRAAG ${quizState.current + 1} VAN ${QUESTIONS.length}</span><br><br>
+      ${q.q}
+    </div>
+    <div class="quiz-options">
+      ${q.opts.map((opt, i) => `<button class="quiz-opt" onclick="answerQuiz(${i})">${String.fromCharCode(65+i)}. ${opt}</button>`).join('')}
+    </div>
+    <div class="quiz-feedback" id="quizFeedback"></div>
+  `;
+  document.getElementById('progressBar').style.width = (quizState.current / QUESTIONS.length * 100) + '%';
+}
+
+function answerQuiz(idx) {
+  if (quizState.answered) return;
+  quizState.answered = true;
+
+  const q = QUESTIONS[quizState.current];
+  const opts = document.querySelectorAll('.quiz-opt');
+  const fb = document.getElementById('quizFeedback');
+  const correct = idx === q.ans;
+
+  opts.forEach((btn, i) => {
+    if (i === q.ans) btn.classList.add('correct');
+    else if (i === idx) btn.classList.add('wrong');
+    btn.disabled = true;
+  });
+
+  if (correct) {
+    quizState.score++;
+    fb.className = 'quiz-feedback show ok';
+    fb.innerHTML = `✓ CORRECT — ${q.exp}`;
+  } else {
+    fb.className = 'quiz-feedback show err';
+    fb.innerHTML = `✗ FOUT — ${q.exp}`;
+  }
+
+  updateScore();
+
+  setTimeout(() => {
+    quizState.current++;
+    quizState.answered = false;
+    if (quizState.current < QUESTIONS.length) {
+      renderQuestion();
+    } else {
+      showFinalScore();
+    }
+  }, 2800);
+}
+
+function showFinalScore() {
+  const pct = Math.round(quizState.score / QUESTIONS.length * 100);
+  const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '✓' : '↺';
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('quizContainer').innerHTML = `
+    <div style="text-align:center; padding: 30px 0">
+      <div style="font-family:'VT323',monospace; font-size:5rem; color:var(--amber); text-shadow:0 0 20px rgba(255,170,0,0.4); line-height:1">${emoji}</div>
+      <div style="font-family:'VT323',monospace; font-size:2.5rem; color:var(--green); margin-top:10px; text-shadow:0 0 12px var(--green)">
+        ${quizState.score} / ${QUESTIONS.length} CORRECT
+      </div>
+      <div style="color:var(--green-dim); margin-top:8px; font-size:0.9rem; letter-spacing:2px">${pct}% — ${pct>=80?'UITSTEKEND':pct>=60?'GOED BEZIG':'PROBEER OPNIEUW'}</div>
+    </div>
+  `;
+}
+
+function updateScore() {
+  document.getElementById('scoreDisplay').textContent = `SCORE: ${quizState.score} / ${QUESTIONS.length}`;
+}
+
+function resetQuiz() { initQuiz(); }
+
+// Init
+analyzeText();
+buildAsciiTable();
+loadExample('html');
+</script>
+</body>
+</html>
