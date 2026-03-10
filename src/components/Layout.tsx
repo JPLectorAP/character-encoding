@@ -7,7 +7,7 @@ export default function Layout() {
 
       <header>
         <h1>ENCODING EXPLORER</h1>
-        <p>// CHARACTER ENCODING INTERACTIVE LAB — APWT IT ESSENTIALS //</p>
+        <p>// CHARACTER ENCODING INTERACTIVE LAB — IT ESSENTIALS //</p>
       </header>
 
       <nav className="tabs">
